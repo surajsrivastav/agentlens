@@ -60,7 +60,7 @@ agentlens sessions                     # list sessions found for this repo
 - **Instruction violations** — you said "don't touch `config.yaml`"; the agent edited it anyway.
 - **Test integrity** — assertions removed, tests deleted or skipped, `assertEqual` quietly weakened to `assertTrue`.
 - **Rework loops** — a file rewritten 3+ times, or worse, oscillating A→B→A, with the token cost that burned.
-- **Hallucinated APIs** *(Go repos only, for now)* — the agent calls `ComputeTotally(x)` like it's a real function. It isn't, anywhere in your repo. This one's genuinely uncertain by nature (see below), so it's held to a higher bar than the others.
+- **Hallucinated APIs** *(Go, Python, TypeScript/JavaScript)* — the agent calls `computeTotally(x)` like it's a real function. It isn't, anywhere in your repo. This one's genuinely uncertain by nature (see below), so it's held to a higher bar than the others — Go findings carry medium confidence (real AST parse), Python/TS carry low confidence (heuristic, no AST — see below).
 
 ## Two more ways to use it
 
@@ -79,7 +79,7 @@ The tool presents evidence; you render the verdict. I'd rather this tool find no
 
 - Every finding carries a confidence label. `--explain` shows you the exact prompt line and the exact tool call behind it — check it yourself before you believe it.
 - Detectors are conservative on purpose. If you later say "actually, go ahead," the earlier directive is treated as superseded, not violated.
-- The hallucinated-API detector parses real Go syntax (not a text-guessing regex) specifically so it doesn't mistake a string literal or comment for a function call — and it only flags a call if the name resolves to nothing anywhere in your repo today, as-is.
+- The hallucinated-API detector's Go path parses real Go syntax (not a text-guessing regex) so it doesn't mistake a string literal or comment for a function call. Python and TypeScript/JavaScript don't have a Go-stdlib parser available — pulling in a real one means a cgo dependency, which would break plain `go install` for everyone — so they get a masking lexer (strip strings/comments, same fix) plus regex-based declaration/import extraction instead. That's why their findings carry low, not medium, confidence: it's tested against real-world code (the actual Python 3.9 stdlib and a production TypeScript monorepo, not just curated fixtures) and tuned down to a low single-digit false-positive rate, but it's still a heuristic, not a parser. All three only flag a call if the name resolves to nothing anywhere in your repo today, as-is.
 - Unknown log formats degrade loudly, never silently. Unrecognized events, malformed lines, subagent sessions (not analyzed yet), and untested Claude Code versions are all surfaced, not swallowed. If agentlens misparses your session, [open an issue](../../issues) with an anonymized fixture and I'll fix it.
 
 **Cursor support is experimental**, and I want to be upfront about why: Cursor's local chat storage isn't documented anywhere, by anyone, officially. What's implemented here is built from community reverse-engineering with zero real Cursor logs to check it against — I don't run Cursor. It reads prompts and assistant text; it deliberately does *not* try to guess at Cursor's tool-call/file-edit schema, so the instruction/test/rework detectors will find nothing in a Cursor session for now. If you use Cursor, an anonymized `state.vscdb` (or even just the two relevant rows) would let me move this from experimental to actually tested — please send one.
