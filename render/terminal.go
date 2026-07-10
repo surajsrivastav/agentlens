@@ -52,8 +52,11 @@ func Terminal(w io.Writer, r *Report) {
 	}
 	for _, sec := range secs {
 		color := c.yellow
-		if sec.Detector == "instruction-violation" {
+		switch sec.Detector {
+		case "instruction-violation":
 			color = c.red
+		case "hallucinated-api":
+			color = c.cyan
 		}
 		fmt.Fprintf(w, "\n%s%s%s %s (%d)%s\n", color, sec.Icon, c.reset+c.bold, sec.Title, len(sec.Findings), c.reset)
 		for _, f := range sec.Findings {

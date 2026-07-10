@@ -13,11 +13,12 @@ type Detector interface {
 	Scan(s *model.Session) []model.Finding
 }
 
-// All returns the v0.1 detector set, in report order.
+// All returns the full detector set, in report order.
 func All() []Detector {
 	return []Detector{
 		&Instructions{},
 		&TestIntegrity{},
 		&Rework{},
+		&HallucinatedAPI{},
 	}
 }

@@ -46,6 +46,8 @@ func HTML(w io.Writer, r *Report) error {
 			it.Class, it.Icon = "test", "⚠️"
 		case "rework-loop":
 			it.Class, it.Icon = "rework", "🔁"
+		case "hallucinated-api":
+			it.Class, it.Icon = "hallucinated", "👻"
 		default:
 			it.Class, it.Icon = "other", "🔎"
 		}
@@ -58,23 +60,24 @@ func HTML(w io.Writer, r *Report) error {
 	}
 
 	data := map[string]any{
-		"SessionID":   s.ID,
-		"Date":        s.Start.Local().Format("Jan 2, 2006 15:04"),
-		"Duration":    humanDuration(s),
-		"Events":      len(s.Events),
-		"Tokens":      humanK(s.TotalUsage.Fresh()),
-		"CacheRead":   humanK(s.TotalUsage.CacheReadTokens),
-		"CWD":         s.CWD,
-		"Branch":      s.GitBranch,
-		"Items":       items,
-		"Violations":  counts["instruction-violation"],
-		"TestIssues":  counts["test-integrity"],
-		"ReworkLoops": counts["rework-loop"],
-		"Clean":       r.CleanEvents,
-		"Warnings":    r.Warnings,
-		"Funnel":      funnelFooter,
-		"Version":     r.Version,
-		"Generated":   time.Now().Local().Format("Jan 2, 2006 15:04"),
+		"SessionID":      s.ID,
+		"Date":           s.Start.Local().Format("Jan 2, 2006 15:04"),
+		"Duration":       humanDuration(s),
+		"Events":         len(s.Events),
+		"Tokens":         humanK(s.TotalUsage.Fresh()),
+		"CacheRead":      humanK(s.TotalUsage.CacheReadTokens),
+		"CWD":            s.CWD,
+		"Branch":         s.GitBranch,
+		"Items":          items,
+		"Violations":     counts["instruction-violation"],
+		"TestIssues":     counts["test-integrity"],
+		"ReworkLoops":    counts["rework-loop"],
+		"Hallucinations": counts["hallucinated-api"],
+		"Clean":          r.CleanEvents,
+		"Warnings":       r.Warnings,
+		"Funnel":         funnelFooter,
+		"Version":        r.Version,
+		"Generated":      time.Now().Local().Format("Jan 2, 2006 15:04"),
 	}
 	return htmlTmpl.Execute(w, data)
 }
@@ -103,12 +106,14 @@ header .meta{color:var(--dim);font-family:var(--mono);font-size:13px;margin-top:
 .stat .l{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
 .stat.violation .n{color:var(--red)}.stat.test .n{color:var(--yellow)}
 .stat.rework .n{color:var(--purple)}.stat.clean .n{color:var(--green)}
+.stat.hallucinated .n{color:var(--blue)}
 .timeline{position:relative;margin:36px 0 0 8px;padding-left:28px;border-left:2px solid var(--border)}
 .entry{position:relative;margin-bottom:22px}
 .entry::before{content:"";position:absolute;left:-35px;top:8px;width:12px;height:12px;border-radius:50%;background:var(--dim);border:2px solid var(--bg)}
 .entry.violation::before{background:var(--red)}
 .entry.test::before{background:var(--yellow)}
 .entry.rework::before{background:var(--purple)}
+.entry.hallucinated::before{background:var(--blue)}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px}
 .card .head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
 .card .time{font-family:var(--mono);color:var(--dim);font-size:13px}
@@ -118,6 +123,7 @@ header .meta{color:var(--dim);font-family:var(--mono);font-size:13px;margin-top:
 .entry.violation .badge{border-color:var(--red);color:var(--red)}
 .entry.test .badge{border-color:var(--yellow);color:var(--yellow)}
 .entry.rework .badge{border-color:var(--purple);color:var(--purple)}
+.entry.hallucinated .badge{border-color:var(--blue);color:var(--blue)}
 details{margin-top:10px}
 summary{cursor:pointer;color:var(--blue);font-size:13px;user-select:none}
 .evidence{margin-top:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
@@ -141,6 +147,7 @@ footer a{color:var(--blue);text-decoration:none}
   <div class="stat violation"><div class="n">{{.Violations}}</div><div class="l">Instruction violations</div></div>
   <div class="stat test"><div class="n">{{.TestIssues}}</div><div class="l">Test integrity</div></div>
   <div class="stat rework"><div class="n">{{.ReworkLoops}}</div><div class="l">Rework loops</div></div>
+  <div class="stat hallucinated"><div class="n">{{.Hallucinations}}</div><div class="l">Hallucinated APIs</div></div>
   <div class="stat clean"><div class="n">{{.Clean}}</div><div class="l">Events clean</div></div>
   <div class="stat"><div class="n">{{.Events}}</div><div class="l">Events</div></div>
   <div class="stat"><div class="n">~{{.Tokens}}</div><div class="l">Fresh tokens</div></div>

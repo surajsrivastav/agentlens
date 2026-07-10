@@ -70,6 +70,7 @@ func (r *Report) sections() []section {
 		{Icon: "⛔", Title: "INSTRUCTION VIOLATIONS", Detector: "instruction-violation"},
 		{Icon: "⚠️", Title: "TEST INTEGRITY", Detector: "test-integrity"},
 		{Icon: "🔁", Title: "REWORK LOOPS", Detector: "rework-loop"},
+		{Icon: "👻", Title: "HALLUCINATED APIS", Detector: "hallucinated-api"},
 	}
 	known := map[string]int{}
 	for i, d := range defs {
