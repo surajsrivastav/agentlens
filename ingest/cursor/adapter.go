@@ -5,9 +5,7 @@ import (
 	"github.com/surajsrivastav/agentlens/model"
 )
 
-// Adapter implements ingest.Adapter for Cursor. EXPERIMENTAL — see
-// package doc. Every session it produces should be accompanied by
-// Warning in the rendered report.
+// Adapter implements ingest.Adapter for Cursor. EXPERIMENTAL.
 type Adapter struct{}
 
 func init() { ingest.Register(Adapter{}) }

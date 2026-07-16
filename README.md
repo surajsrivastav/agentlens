@@ -1,12 +1,14 @@
 # agentlens
 
-**See every mistake your coding agent made last session.**
+**See what your coding agent actually did last session.**
 
-I got tired of reviewing my agent's final diff and having no idea what actually happened to get there — which instructions it quietly ignored, which tests it "fixed" by deleting the assertion, how many times it rewrote the same file chasing its own tail. The data for all of this was sitting right there in `~/.claude/projects/`, unread. So agentlens reads it for you and tells you straight.
+I was tired of opening the final diff and having no idea how the agent got there — which instructions it ignored, which tests it "fixed" by removing assertions, and how many times it rewrote the same file chasing its own tail. The session data was already on disk in `~/.claude/projects/`, but it was unread.
 
-Zero config. Read-only — it diagnoses, it never touches your code.
+So agentlens reads that session data for you and shows you the real story.
 
-🔒 **100% local — no network calls, no telemetry.** Your session content never leaves your machine.
+- Zero config
+- Read-only: it diagnoses, it never changes your code
+- 100% local: no network calls, no telemetry
 
 ## Install
 
@@ -21,81 +23,117 @@ cd my-repo
 agentlens analyze
 ```
 
-```
+Example output:
+
+```sh
 AGENTLENS REPORT — session 2026-07-06 14:02 (47 min, 312 events, ~184k tokens)
 
-⛔ INSTRUCTION VIOLATIONS (1)
+INSTRUCTION VIOLATIONS (1)
   14:14  You said: "Do not modify config.yaml"
          Agent edited config.yaml
          confidence: high
 
-⚠️ TEST INTEGRITY (1)
+TEST INTEGRITY (1)
   14:22  auth_test.go: 2 assertion(s) removed, 1 skip/disable annotation(s) added
          near "make the tests pass" context
          confidence: high
 
-🔁 REWORK LOOPS (1)
+REWORK LOOPS (1)
   14:10  auth.go rewritten 3× (14:10, 14:25, 14:38)
          est. 41k tokens on repeated work
          confidence: high
 
-✅ 214 events clean
+214 events clean
 ```
 
-That's the "holy shit" moment — a real finding from your own session, not a demo. Everything else in this tool exists to get you there faster.
+That is the real signal: a concrete issue from your own session, not a demo. Everything else in the tool exists to help you get to that faster.
 
-More:
+## More commands
 
 ```sh
-agentlens analyze --explain            # show the evidence behind each finding
-agentlens analyze --html report.html   # shareable single-file report, dark mode
-agentlens analyze --json               # machine-readable, for scripting
-agentlens analyze --fail-on violation  # exit 1 if a violation was found — for CI
-agentlens trend                        # aggregate findings across every session in this repo
-agentlens sessions                     # list sessions found for this repo
+agentlens analyze [--session <id>] [--agent <name>] [--html <out.html>] [--json] [--explain] [--fail-on <severity>]
+agentlens trend [--json] [--limit <n>]
+agentlens sessions
+agentlens --version
 ```
 
-## What it looks for
+Commands:
 
-- **Instruction violations** — you said "don't touch `config.yaml`"; the agent edited it anyway.
-- **Test integrity** — assertions removed, tests deleted or skipped, `assertEqual` quietly weakened to `assertTrue`.
-- **Rework loops** — a file rewritten 3+ times, or worse, oscillating A→B→A, with the token cost that burned.
-- **Hallucinated APIs** *(Go, Python, TypeScript/JavaScript)* — the agent calls `computeTotally(x)` like it's a real function. It isn't, anywhere in your repo. This one's genuinely uncertain by nature (see below), so it's held to a higher bar than the others — Go findings carry medium confidence (real AST parse), Python/TS carry low confidence (heuristic, no AST — see below).
+- `analyze` — analyze one session for the current directory: the most recent by default, or a specific one via `--session`
+- `trend` — aggregate findings across every discovered session for the current directory, oldest first
+- `sessions` — list discovered sessions for the current directory
 
-## Two more ways to use it
+Analyze flags:
 
-**`agentlens trend`** rolls up every session agentlens can find for the current repo into one table — dates, durations, token spend, and finding counts side by side, oldest first. Good for "is this getting better or worse" instead of "what happened once."
+- `--session <id>` — session id (or unique prefix) to analyze
+- `--agent <name>` — restrict to one adapter: `claudecode`, `cursor`
+- `--html <path>` — also write a self-contained HTML report
+- `--json` — emit machine-readable JSON to stdout instead of text
+- `--explain` — show the evidence behind each finding
+- `--fail-on <level>` — exit 1 if any finding is at or above this severity (`violation`, `warning`, `info`); unset = always exit 0
 
-**CI mode.** `--fail-on violation` (or `warning`, or `info`) turns a session review into a gate: wire it into a GitHub Action and a PR fails if the session behind it had a real instruction violation. Example:
+Trend flags:
+
+- `--json` — emit machine-readable JSON to stdout instead of text
+- `--limit <n>` — max sessions to include, most recent first (default 20)
+
+agentlens is 100% local: no network calls, no telemetry.
+Cursor support is experimental — see README.
+
+## What it finds
+
+- **Instruction violations** — the agent ignored a directive and still changed a file.
+- **Test integrity issues** — assertions removed, tests skipped or deleted, or checks weakened.
+- **Rework loops** — files rewritten repeatedly or bounced back and forth.
+- **Hallucinated APIs** *(Go, Python, TypeScript/JavaScript)* — the agent called a function that doesn't exist in your repo.
+
+## When to use it
+
+- `agentlens analyze` for a one-off session review
+- `agentlens trend` to compare sessions across time
+- `agentlens analyze --fail-on violation` to gate CI on session problems
+
+Example GitHub Actions step:
 
 ```yaml
 - name: Check the agent's session for violations
   run: agentlens analyze --fail-on violation
 ```
 
-## Trust rules — read this before you trust a finding
+## Trust rules
 
-The tool presents evidence; you render the verdict. I'd rather this tool find nothing than falsely accuse your agent of something it didn't do, so:
+This tool shows evidence — you decide what it means.
 
-- Every finding carries a confidence label. `--explain` shows you the exact prompt line and the exact tool call behind it — check it yourself before you believe it.
-- Detectors are conservative on purpose. If you later say "actually, go ahead," the earlier directive is treated as superseded, not violated.
-- The hallucinated-API detector's Go path parses real Go syntax (not a text-guessing regex) so it doesn't mistake a string literal or comment for a function call. Python and TypeScript/JavaScript don't have a Go-stdlib parser available — pulling in a real one means a cgo dependency, which would break plain `go install` for everyone — so they get a masking lexer (strip strings/comments, same fix) plus regex-based declaration/import extraction instead. That's why their findings carry low, not medium, confidence: it's tested against real-world code (the actual Python 3.9 stdlib and a production TypeScript monorepo, not just curated fixtures) and tuned down to a low single-digit false-positive rate, but it's still a heuristic, not a parser. All three only flag a call if the name resolves to nothing anywhere in your repo today, as-is.
-- Unknown log formats degrade loudly, never silently. Unrecognized events, malformed lines, subagent sessions (not analyzed yet), and untested Claude Code versions are all surfaced, not swallowed. If agentlens misparses your session, [open an issue](../../issues) with an anonymized fixture and I'll fix it.
+- Every finding includes a confidence label.
+- `--explain` shows the exact prompt and tool call behind each finding.
+- Detectors are intentionally conservative.
+- If a later instruction overrides an earlier one, the earlier instruction is not treated as a violation.
 
-**Cursor support is experimental**, and I want to be upfront about why: Cursor's local chat storage isn't documented anywhere, by anyone, officially. What's implemented here is built from community reverse-engineering with zero real Cursor logs to check it against — I don't run Cursor. It reads prompts and assistant text; it deliberately does *not* try to guess at Cursor's tool-call/file-edit schema, so the instruction/test/rework detectors will find nothing in a Cursor session for now. If you use Cursor, an anonymized `state.vscdb` (or even just the two relevant rows) would let me move this from experimental to actually tested — please send one.
+Hallucinated-API detection:
+
+- Go uses real syntax parsing, so it avoids string/comment false positives.
+- Python and TypeScript/JavaScript use a lexer-and-regex approach to stay dependency-free and keep `go install` working.
+- Because of that, Python/TypeScript findings are lower confidence than Go findings.
+- All findings only trigger if the name is missing from your repo today.
+
+If agentlens encounters unknown or malformed session data, it surfaces that loudly instead of ignoring it. If a session format is misparsed, please open an issue with an anonymized fixture.
+
+## Cursor support
+
+Cursor support is experimental.
+
+Cursor's local chat storage is undocumented, so this implementation is based on community reverse-engineering. It reads prompts and assistant text, but it does not yet analyze Cursor tool calls or file-edit metadata. If you use Cursor and can share anonymized `state.vscdb` rows, that would help make this support reliable.
 
 ## Contributing
 
-```
-ingest/    agent adapters (claudecode, cursor) → normalized events
-detect/    detectors — add yours as a single file implementing Detector
-render/    terminal / HTML / JSON
-fixtures/  anonymized sessions per agent version, CI-tested
-```
+- `ingest/` — agent adapters (claudecode, cursor) that normalize events
+- `detect/` — detectors; add one file implementing `Detector`
+- `render/` — terminal, HTML, and JSON output
+- `fixtures/` — anonymized sessions for CI-tested edge cases
 
-Adding a detector is meant to be a weekend, not a rewrite: implement `Scan(*model.Session) []model.Finding`, register it in `detect.All()`, done.
+Adding a detector should be a weekend task: implement `Scan(*model.Session) []model.Finding`, register it in `detect.All()`, and you are done.
 
-Roadmap: CI mode and cross-session trends are done; next up is a real Cursor fixture corpus, then a published "Agent Failure Taxonomy" and a pluggable detector SDK.
+Roadmap: CI mode and repo-level session trends are already done. Next up is a real Cursor fixture corpus, an Agent Failure Taxonomy, and a pluggable detector SDK.
 
 ## License
 

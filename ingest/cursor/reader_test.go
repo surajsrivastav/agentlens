@@ -9,11 +9,8 @@ import (
 )
 
 // makeTestDB builds a synthetic state.vscdb matching the schema this
-// adapter assumes. This validates the adapter's own parsing logic
-// self-consistently — it is NOT a substitute for testing against a
-// real Cursor install, which does not exist on this machine (see
-// package doc). Treat this test as "the code does what it says",
-// not "this matches real Cursor output".
+// adapter assumes. It validates the adapter's parsing logic, but it is
+// not a substitute for testing against a real Cursor install.
 func makeTestDB(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "state.vscdb")

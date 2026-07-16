@@ -26,8 +26,7 @@ type chatBubble struct {
 
 // composerData is the newer Composer/Agent-mode schema
 // (composerData:<id>). Field names beyond conversation/type/text are
-// unverified against a real install and deliberately not relied on —
-// see package doc.
+// unverified against a real install and not relied on.
 type composerData struct {
 	Conversation []composerTurn `json:"conversation"`
 }
