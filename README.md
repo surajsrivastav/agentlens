@@ -16,6 +16,26 @@ So agentlens reads that session data for you and shows you the real story.
 go install github.com/surajsrivastav/agentlens@latest
 ```
 
+If `agentlens` is not found after install, add Go's bin directory to your shell PATH:
+
+```sh
+export PATH="$PATH:$HOME/go/bin"
+```
+
+For zsh, add that line to `~/.zshrc` and reload it:
+
+```sh
+echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Then verify installation:
+
+```sh
+which agentlens
+agentlens --version
+```
+
 ## Use
 
 ```sh
@@ -45,6 +65,8 @@ REWORK LOOPS (1)
 
 214 events clean
 ```
+
+![AgentLens report](docs/screenshots/image.png)
 
 That is the real signal: a concrete issue from your own session, not a demo. Everything else in the tool exists to help you get to that faster.
 
